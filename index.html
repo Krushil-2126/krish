@@ -1,54 +1,65 @@
 <?php
 session_start();
 
-// Set the correct answer
-$correctAnswer = 51;
+// Constants
+define('CORRECT_ANSWER', 51);
 
-// Initialize attempts if not set
+// Initialize session variables on first load or after reset
 if (!isset($_SESSION['attempts'])) {
     $_SESSION['attempts'] = 0;
+    $_SESSION['message'] = '';
+    $_SESSION['message_type'] = '';
+    $_SESSION['game_over'] = false;
 }
 
-// Reset game
+// Handle reset action
 if (isset($_POST['reset'])) {
     $_SESSION['attempts'] = 0;
     $_SESSION['message'] = '';
-    $_SESSION['type'] = '';
-    $_SESSION['disabled'] = false;
-    $_POST['guess'] = '';
+    $_SESSION['message_type'] = '';
+    $_SESSION['game_over'] = false;
+    // Clear the guess input value after reset
+    $guessInputValue = '';
 }
 
-// Handle guess
-if (isset($_POST['guess-btn']) && isset($_POST['guess']) && !$_SESSION['disabled']) {
-    $guess = intval($_POST['guess']);
-    if ($guess < 1 || $guess > 100) {
-        $_SESSION['message'] = 'Please enter a valid number between 1 and 100';
-        $_SESSION['type'] = 'error';
+// Handle guess submission
+if (isset($_POST['guess-btn']) && !$_SESSION['game_over']) {
+    $guess = isset($_POST['guess']) ? intval($_POST['guess']) : null;
+    
+    if ($guess === null || $guess < 1 || $guess > 100) {
+        $_SESSION['message'] = 'Please enter a valid number between 1 and 100.';
+        $_SESSION['message_type'] = 'error';
+        $guessInputValue = htmlspecialchars($_POST['guess'] ?? '');
     } else {
         $_SESSION['attempts']++;
-        if ($guess === $correctAnswer) {
-            $_SESSION['message'] = "🎉 Congratulations! You guessed the correct number ($correctAnswer) in {$_SESSION['attempts']} attempts!";
-            $_SESSION['type'] = 'success';
-            $_SESSION['disabled'] = true;
-        } elseif ($guess < $correctAnswer) {
+        
+        if ($guess === CORRECT_ANSWER) {
+            $_SESSION['message'] = "🎉 Congratulations! You guessed the correct number (" . CORRECT_ANSWER . ") in {$_SESSION['attempts']} attempts!";
+            $_SESSION['message_type'] = 'success';
+            $_SESSION['game_over'] = true;
+        } elseif ($guess < CORRECT_ANSWER) {
             $_SESSION['message'] = 'Your guess is too low. Try again!';
-            $_SESSION['type'] = 'warning';
+            $_SESSION['message_type'] = 'warning';
         } else {
             $_SESSION['message'] = 'Your guess is too high. Try again!';
-            $_SESSION['type'] = 'warning';
+            $_SESSION['message_type'] = 'warning';
         }
+        $guessInputValue = ''; // Clear input after valid guess
     }
+} else {
+    // For initial load or after reset, empty input
+    $guessInputValue = '';
 }
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Guessing Game | KANERIA KRISH DIPAKBHAI 970ceda1</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* [All your CSS remains exactly the same, copied from your original] */
+        /* CSS styles copied exactly from original */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -144,9 +155,14 @@ if (isset($_POST['guess-btn']) && isset($_POST['guess']) && !$_SESSION['disabled
             font-weight: bold;
         }
 
-        button:hover {
+        button:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
         }
 
         .result {
@@ -193,6 +209,20 @@ if (isset($_POST['guess-btn']) && isset($_POST['guess']) && !$_SESSION['disabled
             color: #6c757d;
             font-size: 0.9rem;
         }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            h2 {
+                font-size: 1.5rem;
+            }
+
+            .container {
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -202,7 +232,7 @@ if (isset($_POST['guess-btn']) && isset($_POST['guess']) && !$_SESSION['disabled
             <h2>WA4E Assignment Solution</h2>
         </header>
 
-        <div class="instructions">
+        <section class="instructions">
             <h3>How to Play:</h3>
             <ul>
                 <li>I'm thinking of a number between 1 and 100</li>
@@ -210,22 +240,30 @@ if (isset($_POST['guess-btn']) && isset($_POST['guess']) && !$_SESSION['disabled
                 <li>After each guess, I'll tell you if your guess is too high, too low, or correct</li>
                 <li>The correct answer for this assignment is <strong>51</strong></li>
             </ul>
-        </div>
+        </section>
 
-        <div class="game-area">
+        <main class="game-area">
             <div class="attempts">Attempts: <span id="attempt-count"><?php echo $_SESSION['attempts']; ?></span></div>
 
-            <form method="post" class="guess-form">
-                <input type="number" name="guess" min="1" max="100" placeholder="Enter your guess (1-100)"
-                       <?php echo isset($_SESSION['disabled']) && $_SESSION['disabled'] ? 'disabled' : ''; ?> required>
-                <button type="submit" name="guess-btn"
-                        <?php echo isset($_SESSION['disabled']) && $_SESSION['disabled'] ? 'disabled' : ''; ?>>
+            <form method="post" class="guess-form" novalidate>
+                <input
+                    type="number"
+                    name="guess"
+                    min="1"
+                    max="100"
+                    placeholder="Enter your guess (1-100)"
+                    value="<?php echo $guessInputValue; ?>"
+                    <?php echo $_SESSION['game_over'] ? 'disabled' : ''; ?>
+                    required
+                    autofocus
+                />
+                <button type="submit" name="guess-btn" <?php echo $_SESSION['game_over'] ? 'disabled' : ''; ?>>
                     Submit Guess
                 </button>
             </form>
 
             <?php if (!empty($_SESSION['message'])): ?>
-                <div class="result <?php echo $_SESSION['type']; ?>">
+                <div class="result <?php echo $_SESSION['message_type']; ?>">
                     <?php echo $_SESSION['message']; ?>
                 </div>
             <?php endif; ?>
@@ -233,7 +271,7 @@ if (isset($_POST['guess-btn']) && isset($_POST['guess']) && !$_SESSION['disabled
             <form method="post">
                 <button type="submit" name="reset" class="reset-btn">Reset Game</button>
             </form>
-        </div>
+        </main>
 
         <footer>
             <p>Created by KANERIA KRISH DIPAKBHAI | Student Code: 970ceda1</p>
